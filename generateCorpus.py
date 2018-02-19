@@ -191,10 +191,12 @@ def random_split(wdf,tdf,reqs,prop=50,cache=False,testing=False,seed=5):
     with open(outfile1,"w") as output:
     
         for (item,label) in c[:cutoff]:
-            output.write(unicode(item+"\t"+label+"\n",encoding="UTF-8"))
+            mystring=str(item)+"\t"+str(label)+"\n"
+            output.write(mystring)
     with open(outfile2,"w") as output:
         for (item,label) in c[cutoff:]:
-            output.write(unicode(item+"\t"+label+"\n",encoding="UTF-8"))
+            mystring=str(item)+"\t"+str(label)+"\n"
+            output.write(mystring)
     c1=nlp_tools.corpus([outfile1],nlp,prop=loadprop,ner=False,paired=True)
     c2=nlp_tools.corpus([outfile2],nlp,prop=loadprop,ner=False,paired=True)
     return(c1,c2)
