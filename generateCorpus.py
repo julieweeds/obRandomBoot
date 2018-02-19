@@ -188,12 +188,12 @@ def random_split(wdf,tdf,reqs,prop=50,cache=False,testing=False,seed=5):
     random.shuffle(c)
     cutoff=int((prop/100)*len(c))
     
-    with open(outfile1,"w") as output:
+    with open(outfile1,"w",encoding="utf-8") as output:
     
         for (item,label) in c[:cutoff]:
-            mystring=str(item)+"\t"+str(label)+"\n"
+            mystring=item+"\t"+str(label)+"\n"
             output.write(mystring)
-    with open(outfile2,"w") as output:
+    with open(outfile2,"w",encoding="utf-8") as output:
         for (item,label) in c[cutoff:]:
             mystring=str(item)+"\t"+str(label)+"\n"
             output.write(mystring)

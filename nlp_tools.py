@@ -3,14 +3,19 @@
 
 # # Corpus Analysis for Old Bailey Data
 # 
-# First import necessary packages - spacy is for nlp analysis
+# First import necessary packages - spacy is for nlp analysis, pandas and matplotlib for data analysis and visualisation
 
 # In[1]:
 
 import spacy
-nlp=spacy.load('en')
+import pandas as pd
+import matplotlib as plt
+#get_ipython().magic('matplotlib inline')
+import time
+#nlp=spacy.load('en')
 from collections import defaultdict
-import logging
+import operator,math,random,logging
+from gensim.models import Word2Vec
 
 
 # The corpus class loads in, stores and performs basic nlp analysis on a corpus.  The data structures generated during basic analysis can be accessed for further analysis and visualisation.
@@ -21,16 +26,19 @@ class corpus:
     
     loctypes=["LOC","GPE","FAC"]
     
-    def __init__(self,ipfiles,nlpmodel,prop=10,ner=False,loadfiles=True):
+    def __init__(self,ipfiles,nlpmodel,prop=10,ner=False,loadfiles=True,paired=False):
         #default mode is to load in 10%.  Set prop = 100 to load in whole corpus
         self.sourcefiles=ipfiles
         self.nlp=nlpmodel
         self.prop=prop
         self.name=""
+        self.paired=paired
         self.docs=[]
+        self.nlpdocs=[]
         self.allworddict=defaultdict(int)
         self.worddict=defaultdict(int)
         self.noundict=defaultdict(int)
+        self.propnoundict=defaultdict(int)
         self.verbdict=defaultdict(int)
         self.adjdict=defaultdict(int)
         self.advdict=defaultdict(int)
@@ -41,9 +49,11 @@ class corpus:
         self.sentences=[]
         self.content_sentences=[]
         self.pos_sentences=[]
-
+        self.worddocdict=defaultdict(lambda:defaultdict(int))
+        
         self.wordtotal=0
         self.nountotal=0
+        self.propnountotal=0
         self.verbtotal=0
         self.adjtotal=0
         self.advtotal=0
@@ -53,51 +63,73 @@ class corpus:
         else:
             self.docs=ipfiles
             self.name="unknown"
-        self.basic_analyse_all(ner=ner)
+            
+        if self.docs==None:
+            #simple copy for bootstrapping purposes
+            pass
+        else:
+            self.basic_analyse_all(ner=ner)
         
     def initialise(self):
         print("Loading sourcefiles")
         for ipf in self.sourcefiles:
-            with open(ipf) as input:
+            with open(ipf,encoding="utf-8") as instream:
                 self.name+="_"+ipf
-                for line in input:
-                    self.docs.append(line)
+                if self.paired:
+                    self.labels=[]
+                    for line in instream:
+                        parts=line.split('\t')
+                        self.docs.append(parts[0].rstrip())
+                        self.labels.append(parts[1])
+                else:
+                    for line in instream:
+                        self.docs.append(line.rstrip())
                 
        
     
     def basic_analyse_all(self,ner=False):
         if ner:
-            logging.info("Running basic analysis with NER")
+            print ("Running basic analysis with NER")
         else:
-            logging.info("Running basic analysis")
+            print("Running basic analysis")
         todo=len(self.docs)
         if self.prop<10:
             tenpercent=((todo*self.prop)//100)+1
         else:
             tenpercent=(todo//10)+1
-        logging.info("Analysing {}%. Chunks of size {}".format(self.prop,tenpercent))
+        print("Analysing {}%. Chunks of size {}".format(self.prop,tenpercent))
         self.count=0        
-        for doc in self.docs:
-            nlpdoc=self.basic_analyse_single(doc)
+        for i,doc in enumerate(self.docs):
+            if self.paired:
+                label=self.labels[i]
+            else:
+                label="none"
+            nlpdoc=self.basic_analyse_single(doc,label=label)
+            self.nlpdocs.append(nlpdoc)
             if ner:
                 self.explore_ner(nlpdoc,self.count)
         
             if self.count%tenpercent==0:
                 done=self.count*100/todo
-                logging.info("Completed {} docs ({}% complete)".format(str(self.count),str(done)))
+                print("Completed {} docs ({}% complete)".format(str(self.count),str(done)))
                 if done >= self.prop:
                     break
-                
-        logging.info("Number of documents is {}".format(self.count))
+        if self.paired:
+            print("Calculating document frequencies ....")
+            self.docfreq={}
+            for key in self.worddocdict.keys():
+                self.docfreq[key]=len(self.worddocdict[key].keys())
+        
+        print("Number of documents is {}".format(self.count))
         #print("Distribution of document lengths is {}".format(str(self.doclengths)))
         #print("Distribution of sentence lengths is {}".format(str(self.sentencelengths)))
         #print("Distribution of word lengths is {}".format(str(self.wordlengths)))
         #print("Number of docs with 1 sentence is {}".format(self.doclengths[1]))
         
-    def basic_analyse_single(self,doc):
+    def basic_analyse_single(self,doc,label="none"):
         
         self.count+=1
-        nlpdoc=nlp(doc)
+        nlpdoc=self.nlp(doc)
         nosents=0
         for sent in nlpdoc.sents:
             sent_text=[]
@@ -124,6 +156,9 @@ class corpus:
                     if token.pos_ =="NOUN":
                         self.noundict[token.lemma_]+=1
                         self.nountotal+=1
+                    elif token.pos_ =="PROPN":
+                        self.propnoundict[token.lemma_]+=1
+                        self.propnountotal+=1
                     elif token.pos_=="VERB":
                         self.verbdict[token.lemma_]+=1
                         self.verbtotal+=1
@@ -133,6 +168,9 @@ class corpus:
                     elif token.pos_=="ADV":
                         self.advdict[token.lemma_]+=1
                         self.advtotal+=1
+                        
+                if not label=="none":
+                    self.worddocdict[token.lemma_][label]+=1
                         
             self.sentences.append(sent_text)    
             self.content_sentences.append(content_text)
@@ -174,5 +212,151 @@ class corpus:
                     else:
                         print("{}\t{}\t{}\t{}\t{}\t{}\t{}".format(token.i,token.text,token.lemma_,token.pos_,token.ent_type_,token.dep_,token.head.i))
     
+    
+    def copy(self):
         
+        labels=list(set(self.labels))
+        worddocdict=defaultdict(lambda:defaultdict(int))
+        for (key,value) in self.worddocdict.items():
+            worddocdict[key]=dict(value)
+        return labels,worddocdict
+        
+    def bootstrap(self,size=0,verbose=False):
+        
+        labelset=list(set(self.labels))
+        if verbose:
+            logging.info("{} unique document labels in corpus".format(len(labelset)))
+        if size==0:
+            size=len(labelset)
+        if verbose:
+            logging.info("Bootstrap size: {}".format(size))    
+        sample=[]
+        while len(sample) < size:
+            sample.append(random.choice(labelset))
+            
+        bootstrapped_wdf=defaultdict(lambda:defaultdict(int))
+        
+        for word in self.worddocdict.keys():
+            for i,label in enumerate(sample):
+                value = self.worddocdict[word][label]
+                if value>0:
+                    bootstrapped_wdf[word][i]=value
+                
+        docfreq={}
+        termfreq={}
+        for key in bootstrapped_wdf.keys():
+            docfreq[key]=len(bootstrapped_wdf[key].keys())
+            termfreq[key]=sum(bootstrapped_wdf[key].values())
+        
+        return termfreq,docfreq
+            
+            
+            
+def summarise(freqtable_dict):
+    
+    sumf=0
+    sumxf=0
+    sumxxf=0
+    for key in freqtable_dict.keys():
+        sumf+=freqtable_dict[key]
+        sumxf+=freqtable_dict[key]*key
+        sumxxf+=freqtable_dict[key]*key*key
+        
+    mean=sumxf/sumf
+    var = sumxxf/sumf-mean*mean
+    sd=math.sqrt(var)
+    
+    print("Mean is {} and sd is {}".format(str(mean),str(sd)))
+    return(mean,sd)
+    
+
+
+def squash(afreqdict,m,sd):
+    
+    bmax=0
+    threshold=math.ceil(m+sd)
+    
+    count=0
+    bfreqdict=defaultdict(int)
+    print("Threshold for inclusion in bar chart is {}".format(threshold))
+    for (key,value) in afreqdict.items():
+        #print(key)
+        #print(type(key))
+        if key>threshold:
+            count+=value
+        else:
+            bfreqdict[key]=value
+            
+        if key > bmax:
+            bmax=key
+    #print(count)
+    label=threshold
+    bfreqdict[label]=count
+    return bfreqdict
+
+
+
+def visualise(afreqdict,heading='',makesquash=True):
+
+    (m,sd)=summarise(afreqdict)
+    if makesquash:
+        bfreqdict=squash(afreqdict,m,sd)
+    else:
+        bfreqdict=afreqdict
+    docsdata = pd.DataFrame.from_dict(bfreqdict,orient='index')
+    docsdata.sort_index(inplace=True)
+    docsdata.plot.bar(title='Distribution of number of '+heading,legend=False,figsize=(12,6))
+    return docsdata
+
+
+
+# ## Popular Words
+# 
+# Find words (possibly of given part of speech) which are most common in a given corpus.  Then find the ones which are 'most surprising' given a second comparative corpus.
+
+# In[57]:
+
+#import operator
+
+def find_most_common_words(corpus1,wordtype,n=10):
+
+    (dist1,_)=corpus1.get_word_distribution(wordtype)
+    dc_sort = sorted(dist1.items(),key = operator.itemgetter(1),reverse = True)
+    return dc_sort[0:n]
+
+
+
+def find_surprising_words(corpus1,corpus2,wordtype,n=10,shift=0.25):
+    #will find words which are surprisingly frequent in dist1 given dist2
+    
+    
+    (dist1,total1)=corpus1.get_word_distribution(wordtype)
+    (dist2,total2)=corpus2.get_word_distribution(wordtype)
+    
+    candidates={}
+   
+    
+    for(key,value) in dist1.items():
+        if value>0:
+            p1=value/total1
+            p2=(dist2[key]+0.1)/(total2+0.1)
+            #p2=(dist2[key]+value)/(total2+total1)
+            
+            llr=math.log(p1/p2)
+        
+            if llr>0:
+                
+                llr=(1-shift)*llr+math.log(p1)
+                candidates[key]=llr
+
+       
+    dc_sort=sorted(candidates.items(),key=operator.itemgetter(1),reverse=True)
+    freqs=[(key,dist1[key]) for (key,_) in dc_sort[0:n]]
+    
+    return freqs
+   
+
+# In[ ]:
+
+
 
