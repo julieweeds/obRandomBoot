@@ -6,7 +6,7 @@ import operator
 import math,logging,random
 from time import time
 from collections import defaultdict
-
+import warnings
 
 
 
@@ -75,8 +75,19 @@ def llr(wordfreq, refwordfreq, corpussize, refcorpussize):
 
 
 def klp(p, q):
-    return p * np.log((2 * p) / (p + q))
-
+    
+    with warnings.catch_warnings():
+        warnings.filterwarnings('error')
+        if p==0:
+            return 0
+        try:
+            score = p*np.log((2*p)/(p+q))
+            return score
+        except Warning as e:
+            logging.info("{}: {},{}".format(e, p,q))
+            return 0
+        
+       
 
 def kl(wordfreq, refwordfreq, corpussize, refcorpussize):
     # ref should be the total corpus - function works out difference
@@ -90,7 +101,8 @@ def kl(wordfreq, refwordfreq, corpussize, refcorpussize):
 def jsd(wordfreq, refwordfreq, corpussize, refcorpussize):
     p = wordfreq / corpussize
     q = (refwordfreq - wordfreq) / (refcorpussize - corpussize)
-
+    if (p+q)==0:
+        logging.info("division by 0: {},{},{},{}".format(wordfreq,refwordfreq,corpussize,refcorpussize))
     k1 = klp(p, q)
     k2 = klp(q, p)
     score = 0.5 * (k1 + k2)
@@ -191,7 +203,7 @@ def checkconvergence(newdict,cache,N,t=0.9):
             break
         else:
             newcache[term]=score
-    logging.info(newcache)
+    #logging.info(newcache)
     
     absdiffs=[]
     for term in newcache.keys():

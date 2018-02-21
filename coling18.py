@@ -32,8 +32,8 @@ def do_surprises(args):
     dist=args[0]
     hf_theft=args[1]
     info=args[2]
-    res=improved_compute_surprises(dist,hf_theft[info['ftype']],info['m'])
-    filename=info['m']+"_"+str(info['key'])+"__"+str(info['thisseed'])  
+    res=improved_compute_surprises(dist,hf_theft[info['ftype']],info['m'],display=False)
+    filename=info['ftype']+":"+info['m']+"_"+str(info['key'])+"__"+str(info['thisseed'])  
     cdump(res,filename)
     
     return res
@@ -74,7 +74,7 @@ if __name__=="__main__":
 
     info['k']=10000 #top k words (by frequency) to consider
 
-    testing=True
+    testing=False
 
     for run in range(0,runs):
         info['thisseed']=seeds[run]
@@ -119,13 +119,14 @@ if __name__=="__main__":
                     info['key']=key
                     #do_surprises(dist,hf_theft,info)
                     filenames.append(info['m']+"_"+str(info['key'])+"__"+str(info['thisseed']))
-                    inputs.append((dist,hf_theft,info))
+                    inputs.append(((dist[0],list(dist[1])),hf_theft,dict(info)))
         mappool=Pool(processes=threads)
         results=mappool.map(do_surprises,inputs)
         mappool.close()  
         for filename,res in zip(filenames,results):
             logging.info("{}:{}".format(filename,len(res)))
-                               
+        
+        system.exit(0)
         #bootstrapped measures
         bsmeasures=["termfreq","docfreq"]
         balanced=[False,True]
@@ -133,7 +134,7 @@ if __name__=="__main__":
         if testing:
             info['repeats']=10
         else:
-            info['repeats']=1000                          
+            info['repeats']=2000                          
                                       
 
         info['count']=0
