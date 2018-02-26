@@ -66,7 +66,7 @@ if __name__=="__main__":
     worddata=pd.read_csv(worddatafile,sep='\t')
     trialdata=pd.read_csv(trialdatafile,sep='\t')
      
-    threads=24
+    threads=40
     runs=5                          
     seeds=[19,23,29,37,13]
     splits=[5,10,15,20,25,30,35,40,45,50]
