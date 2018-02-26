@@ -124,7 +124,7 @@ if __name__=="__main__":
                         info['key']=key
                         #do_surprises(dist,hf_theft,info)
                     filenames.append(info['m']+str(info['smoothing'])+"_"+str(info['key'])+"__"+str(info['thisseed']))
-                    inputs.append(((dist[0],list(dist[1])),hf_theft,dict(info)))
+                        inputs.append(((dist[0],list(dist[1])),hf_theft,dict(info)))
         mappool=Pool(processes=threads)
         results=mappool.map(do_surprises,inputs)
         mappool.close()  
