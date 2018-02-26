@@ -151,7 +151,6 @@ class corpus:
                 sent_text.append(token.text.lower())
                 pos_text.append(token.text.lower()+"_"+token.pos_)
                 if not token.is_stop and not token.is_oov and not token.pos_=="PUNCT":
-                    self.worddict[token.lemma_]+=1
                     content_text.append(token.lemma_)
                     if token.pos_ =="NOUN":
                         self.noundict[token.lemma_]+=1
@@ -171,6 +170,8 @@ class corpus:
                         
                 if not label=="none":
                     self.worddocdict[token.lemma_][label]+=1
+                    self.worddict[token.lemma_]+=1
+
                         
             self.sentences.append(sent_text)    
             self.content_sentences.append(content_text)

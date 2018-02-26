@@ -133,7 +133,6 @@ if __name__=="__main__":
         
         #bootstrapped measures
         bsmeasures=["termfreq","docfreq"]
-        bsmeasures=[]
         balanced=[False,True]
 
         if testing:
