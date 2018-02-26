@@ -58,7 +58,7 @@ def do_bootstrap(args):
 if __name__=="__main__":
     nlp=spacy.load('en')
     logging.basicConfig(level=logging.INFO)
-    parentdir="../../voa/OBV2"
+    parentdir=""
     allreqlist=[('deft_offcat','theft'),('year:min',1800),('year:max',1820),('obv_role',['def','wv'])]
     worddatafile=os.path.join(parentdir,"obv_words_v2_28-01-2017.tsv")
     trialdatafile=os.path.join(parentdir,"obv_defendants_trials.tsv")
@@ -66,7 +66,7 @@ if __name__=="__main__":
     worddata=pd.read_csv(worddatafile,sep='\t')
     trialdata=pd.read_csv(trialdatafile,sep='\t')
      
-    threads=40
+    threads=24
     runs=5                          
     seeds=[19,23,29,37,13]
     splits=[5,10,15,20,25,30,35,40,45,50]
@@ -133,6 +133,7 @@ if __name__=="__main__":
         
         #bootstrapped measures
         bsmeasures=["termfreq","docfreq"]
+        bsmeasures=[]
         balanced=[False,True]
 
         if testing:
